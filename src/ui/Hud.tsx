@@ -21,7 +21,9 @@ export function Hud() {
       ? "BOTHER THE DUCK"
       : prompt === "trash"
         ? "DIG"
-        : STATIONS.find((s) => s.id === prompt)?.label ?? null;
+        : prompt === "bench"
+          ? "SIT"
+          : STATIONS.find((s) => s.id === prompt)?.label ?? null;
 
   return (
     <div className="hud">

@@ -2,7 +2,7 @@ import { useMemo, useRef } from "react";
 import * as THREE from "three";
 import { useFrame } from "@react-three/fiber";
 import { CONFIG } from "../config";
-import { STATIONS, DUCK, type Station } from "../content";
+import { STATIONS, DUCK, type Station, type StationId } from "../content";
 import { psxMaterial } from "../render/psx";
 import { activity, duckState, playerState } from "./input";
 import { useStore } from "../store";
@@ -20,6 +20,29 @@ function waypoint(st: Station): [number, number] {
   return [st.x * k, st.z * k];
 }
 
+// Lives at module scope, not in a ref, so the duck remembers where it was and
+// who it met when the street unmounts during a den visit and mounts back.
+const brain = {
+  mode: "idle" as Mode,
+  greeted: false,
+  greetT: 0,
+  doneSaid: false,
+  completeSaid: false,
+  lastIdleLine: 0,
+  stared: false,
+  stareT: 0,
+  lastCreep: 0,
+  waitStart: 0,
+  gaveUp: false,
+  delivered: new Set<StationId>(),
+  target: null as Station | null,
+  tx: CONFIG.duck.lampSpot[0] as number,
+  tz: CONFIG.duck.lampSpot[1] as number,
+  yaw: 0,
+};
+
+const pick = (lines: readonly string[]) => lines[Math.floor(Math.random() * lines.length)];
+
 export function Duck() {
   const root = useRef<THREE.Group>(null!);
   const body = useRef<THREE.Group>(null!);
@@ -28,25 +51,13 @@ export function Duck() {
   const wingR = useRef<THREE.Mesh>(null!);
   const smoke = useRef<THREE.Group>(null!);
 
-  const fsm = useRef({
-    mode: "idle" as Mode,
-    greeted: false,
-    greetT: 0,
-    doneSaid: false,
-    completeSaid: false,
-    lastIdleLine: 0,
-    stared: false,
-    lastCreep: 0,
-    target: null as Station | null,
-    tx: CONFIG.duck.lampSpot[0] as number,
-    tz: CONFIG.duck.lampSpot[1] as number,
-    yaw: 0,
-  });
+  const restored = useRef(false);
 
   const mats = useMemo(
     () => ({
-      cream: psxMaterial({ color: CONFIG.palette.cream }),
-      beak: psxMaterial({ color: CONFIG.palette.beak }),
+      // faint white self-glow keeps the duck reading as white under the warm lamp
+      cream: psxMaterial({ color: CONFIG.palette.cream, emissive: "#cfcabe", emissiveIntensity: 0.32 }),
+      beak: psxMaterial({ color: CONFIG.palette.beak, emissive: CONFIG.palette.beak, emissiveIntensity: 0.18 }),
       dark: psxMaterial({ color: "#1b1b18" }),
       ember: psxMaterial({ color: "#3a1208", emissive: CONFIG.palette.ember, emissiveIntensity: 2.2, flicker: true }),
       ciggy: psxMaterial({ color: "#ddd6c8" }),
@@ -64,16 +75,24 @@ export function Duck() {
     const t = state.clock.elapsedTime;
     // stepped time gives the low-fps animation feel without hurting input
     const tq = Math.floor(t * CONFIG.look.animFps) / CONFIG.look.animFps;
-    const f = fsm.current;
+    const f = brain;
     const g = root.current;
     if (!g || s.phase !== "play") return;
+
+    // returning from the den: drop the duck back where it actually was
+    if (!restored.current) {
+      g.position.set(duckState.x, 0, duckState.z);
+      g.rotation.y = f.yaw;
+      restored.current = true;
+    }
 
     duckState.x = g.position.x;
     duckState.z = g.position.z;
     const pdx = playerState.x - g.position.x;
     const pdz = playerState.z - g.position.z;
     const playerDist = Math.hypot(pdx, pdz);
-    const playerYaw = Math.atan2(-pdx, -pdz) + Math.PI;
+    // duck's beak is its local -Z, so this yaw points the face at the player
+    const playerYaw = Math.atan2(-pdx, -pdz);
 
     const unvisited = STATIONS.filter((st) => !st.hidden && !s.visited[st.id]);
     const nextTarget = () => {
@@ -90,13 +109,35 @@ export function Duck() {
       return best;
     };
 
+    const giveUp = (line: string) => {
+      f.gaveUp = true;
+      f.target = null;
+      [f.tx, f.tz] = CONFIG.duck.lampSpot;
+      f.mode = "home";
+      s.say(line, 5200);
+    };
+
+    // stations the visitor opened on their own, that the duck never escorted
+    // them to (the current target doesn't count — it's mid-delivery)
+    const skipped = STATIONS.filter(
+      (st) => !st.hidden && s.visited[st.id] && st.id !== f.target?.id && !f.delivered.has(st.id),
+    ).length;
+
     // 100% completion: every station seen, including the hidden den
     if (!f.completeSaid && !s.panel && STATIONS.every((st) => s.visited[st.id])) {
       f.completeSaid = true;
       s.say(DUCK.complete, 6000);
     }
 
-    // visitor has been frozen in place for a while — go investigate
+    // after the visitor blows off two stations on their own, the duck stops
+    // escorting and shuffles back to the lamp — but keeps guiding from a distance
+    if (!f.gaveUp && (f.mode === "walk" || f.mode === "wait" || f.mode === "creep") && skipped >= 2) {
+      giveUp(pick(DUCK.gaveUp));
+    }
+
+    // visitor has been frozen in place for a while — wander over to check on
+    // them and say something. this still happens after it gives up escorting:
+    // it guides and talks from a distance, it just won't walk the tour anymore.
     const idleFor = t - Math.max(activity.t, f.lastCreep);
     if (
       (f.mode === "idle" || f.mode === "wait") &&
@@ -114,16 +155,9 @@ export function Duck() {
       if (moved) {
         // they're alive after all — back to business
         f.lastCreep = t + CREEP_COOLDOWN;
-        const st = nextTarget();
-        if (st) {
-          f.target = st;
-          [f.tx, f.tz] = waypoint(st);
-          f.mode = "walk";
-        } else {
-          f.target = null;
-          [f.tx, f.tz] = CONFIG.duck.lampSpot;
-          f.mode = "home";
-        }
+        f.mode = "home";
+        f.target = null;
+        [f.tx, f.tz] = CONFIG.duck.lampSpot;
       } else if (playerDist > 1.4) {
         const step = Math.min(playerDist, CONFIG.duck.speed * dt);
         g.position.x += (pdx / playerDist) * step;
@@ -133,7 +167,14 @@ export function Duck() {
         f.yaw = playerYaw;
         if (!f.stared) {
           f.stared = true;
-          s.say(DUCK.stare[Math.floor(Math.random() * DUCK.stare.length)]);
+          f.stareT = t;
+          s.say(pick(DUCK.stare));
+        } else if (t - f.stareT > 4.5) {
+          // said its piece — shuffle back to the lamp
+          f.lastCreep = t + CREEP_COOLDOWN;
+          f.mode = "home";
+          f.target = null;
+          [f.tx, f.tz] = CONFIG.duck.lampSpot;
         }
       }
     }
@@ -146,18 +187,21 @@ export function Duck() {
         s.say(at3am ? DUCK.greeting3am : DUCK.greetings[Math.floor(Math.random() * DUCK.greetings.length)]);
       }
       if (f.greeted && t - f.greetT > 3.5) {
-        const st = nextTarget();
+        // already explored a couple of stations alone before the tour began —
+        // don't bother offering to guide
+        if (skipped >= 2 && !f.gaveUp) giveUp(pick(DUCK.gaveUp));
+        const st = f.gaveUp ? null : nextTarget();
         if (st) {
           f.target = st;
           [f.tx, f.tz] = waypoint(st);
           f.mode = "walk";
-          s.say(DUCK.follow);
-        } else if (!f.doneSaid && playerDist < 4) {
+          s.say(pick(DUCK.follow));
+        } else if (!f.doneSaid && !f.gaveUp && playerDist < 4) {
           f.doneSaid = true;
           s.say(DUCK.allDone);
-        } else if (playerDist < 4 && t - f.lastIdleLine > 16) {
+        } else if (playerDist < 3.5 && t - f.lastIdleLine > 22) {
           f.lastIdleLine = t;
-          s.say(DUCK.idle[Math.floor(Math.random() * DUCK.idle.length)]);
+          s.say(pick(DUCK.idle));
         }
       }
     } else if (f.mode === "walk" || f.mode === "home") {
@@ -165,16 +209,23 @@ export function Duck() {
       const dz = f.tz - g.position.z;
       const d = Math.hypot(dx, dz);
       if (d < 0.25) {
-        f.mode = f.mode === "home" ? "idle" : "wait";
+        if (f.mode === "home") {
+          f.mode = "idle";
+        } else {
+          f.mode = "wait";
+          f.waitStart = t;
+        }
       } else {
         const step = Math.min(d, CONFIG.duck.speed * dt);
         g.position.x += (dx / d) * step;
         g.position.z += (dz / d) * step;
-        f.yaw = Math.atan2(-dx, -dz) + Math.PI;
+        f.yaw = Math.atan2(-dx, -dz); // face the way it's walking
       }
     } else if (f.mode === "wait") {
-      f.yaw = playerYaw; // look back at the player, beckoning
-      if (f.target && s.visited[f.target.id]) {
+      f.yaw = playerYaw; // turn and face the visitor, beckoning
+      const visited = f.target && s.visited[f.target.id];
+      const far = f.target ? playerDist > f.target.radius + 3.5 : false;
+      const advance = () => {
         const st = nextTarget();
         if (st) {
           f.target = st;
@@ -185,11 +236,21 @@ export function Duck() {
           [f.tx, f.tz] = CONFIG.duck.lampSpot;
           f.mode = "home";
         }
+      };
+      if (visited) {
+        if (f.target) f.delivered.add(f.target.id);
+        advance();
+      } else if (far && t - f.waitStart > 12) {
+        // the visitor clearly isn't following — give up and head back to the lamp
+        giveUp(pick(DUCK.ignored));
       }
     }
 
     if (f.mode === "idle") f.yaw = playerDist < 6 ? playerYaw : f.yaw;
-    g.rotation.y += (f.yaw - g.rotation.y) * Math.min(1, dt * 6);
+    // shortest-arc turn so the duck never spins the long way round
+    let dyaw = f.yaw - g.rotation.y;
+    dyaw = Math.atan2(Math.sin(dyaw), Math.cos(dyaw));
+    g.rotation.y += dyaw * Math.min(1, dt * 6);
 
     // animation poses, quantized to animFps
     const walking = f.mode === "walk" || f.mode === "home" || (f.mode === "creep" && playerDist > 1.4);
@@ -219,54 +280,63 @@ export function Duck() {
   return (
     <group ref={root} position={[CONFIG.duck.lampSpot[0], 0, CONFIG.duck.lampSpot[1]]}>
       <group ref={body}>
-        {/* body + tail */}
-        <mesh position={[0, 0.42, 0]} material={mats.cream}>
-          <boxGeometry args={[0.56, 0.46, 0.78]} />
+        {/* plump little body + stubby tail */}
+        <mesh position={[0, 0.4, 0.02]} material={mats.cream}>
+          <boxGeometry args={[0.5, 0.5, 0.64]} />
         </mesh>
-        <mesh position={[0, 0.58, 0.42]} rotation-x={0.5} material={mats.cream}>
-          <boxGeometry args={[0.22, 0.1, 0.26]} />
-        </mesh>
-
-        {/* wings */}
-        <mesh ref={wingL} position={[0.31, 0.46, 0.05]} material={mats.cream}>
-          <boxGeometry args={[0.08, 0.26, 0.5]} />
-        </mesh>
-        <mesh ref={wingR} position={[-0.31, 0.46, 0.05]} material={mats.cream}>
-          <boxGeometry args={[0.08, 0.26, 0.5]} />
+        <mesh position={[0, 0.56, 0.36]} rotation-x={0.55} material={mats.cream}>
+          <boxGeometry args={[0.24, 0.12, 0.22]} />
         </mesh>
 
-        {/* head — yaw 0 faces -z so the face sits on the -z side */}
-        <group ref={head} position={[0, 0.9, -0.22]}>
+        {/* wings tucked against the body */}
+        <mesh ref={wingL} position={[0.28, 0.42, 0.03]} material={mats.cream}>
+          <boxGeometry args={[0.08, 0.3, 0.46]} />
+        </mesh>
+        <mesh ref={wingR} position={[-0.28, 0.42, 0.03]} material={mats.cream}>
+          <boxGeometry args={[0.08, 0.3, 0.46]} />
+        </mesh>
+
+        {/* big fluffy head — yaw 0 faces -z, so the face sits on the -z side */}
+        <group ref={head} position={[0, 0.92, -0.14]}>
           <mesh material={mats.cream}>
-            <boxGeometry args={[0.32, 0.32, 0.34]} />
+            <boxGeometry args={[0.44, 0.42, 0.42]} />
           </mesh>
-          {/* heavy eyelids: dark slits under cream lids */}
-          {[0.11, -0.11].map((x) => (
-            <mesh key={x} position={[x, 0.045, -0.175]} material={mats.dark}>
-              <boxGeometry args={[0.07, 0.035, 0.01]} />
-            </mesh>
+          {/* heavy, half-closed eyelids: cream lid with a dark sleepy slit */}
+          {[0.12, -0.12].map((x) => (
+            <group key={x} position={[x, 0.04, -0.205]}>
+              <mesh position={[0, 0.03, 0]} material={mats.cream}>
+                <boxGeometry args={[0.12, 0.08, 0.02]} />
+              </mesh>
+              <mesh material={mats.dark}>
+                <boxGeometry args={[0.1, 0.04, 0.03]} />
+              </mesh>
+            </group>
           ))}
-          <mesh position={[0, -0.04, -0.26]} material={mats.beak}>
-            <boxGeometry args={[0.14, 0.07, 0.2]} />
+          {/* short flat orange bill */}
+          <mesh position={[0, -0.07, -0.22]} material={mats.beak}>
+            <boxGeometry args={[0.24, 0.1, 0.18]} />
           </mesh>
-          {/* cigarette + ember */}
-          <mesh position={[0.06, -0.09, -0.4]} rotation-x={0.35} material={mats.ciggy}>
-            <boxGeometry args={[0.025, 0.025, 0.18]} />
+          <mesh position={[0, -0.12, -0.18]} material={mats.beak}>
+            <boxGeometry args={[0.2, 0.04, 0.12]} />
           </mesh>
-          <mesh position={[0.06, -0.123, -0.49]} material={mats.ember}>
-            <boxGeometry args={[0.03, 0.03, 0.03]} />
+          {/* cigarette hanging from the corner of the bill, lit ember + smoke */}
+          <mesh position={[0.09, -0.1, -0.34]} rotation-x={0.32} material={mats.ciggy}>
+            <boxGeometry args={[0.028, 0.028, 0.2]} />
           </mesh>
-          <group ref={smoke} position={[0.06, -0.05, -0.5]}>
+          <mesh position={[0.09, -0.13, -0.44]} material={mats.ember}>
+            <boxGeometry args={[0.035, 0.035, 0.035]} />
+          </mesh>
+          <group ref={smoke} position={[0.09, -0.1, -0.46]}>
             {mats.smoke.map((m, i) => (
               <sprite key={i} material={m} />
             ))}
           </group>
         </group>
 
-        {/* feet */}
-        {[0.14, -0.14].map((x) => (
-          <mesh key={x} position={[x, 0.035, -0.04]} material={mats.beak}>
-            <boxGeometry args={[0.14, 0.06, 0.24]} />
+        {/* webbed feet */}
+        {[0.13, -0.13].map((x) => (
+          <mesh key={x} position={[x, 0.035, -0.06]} material={mats.beak}>
+            <boxGeometry args={[0.15, 0.06, 0.26]} />
           </mesh>
         ))}
       </group>

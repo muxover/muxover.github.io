@@ -298,11 +298,43 @@ button {
   color: var(--dim);
   font-size: 17px;
   margin-top: 2px;
+  /* one line, then trail off */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .signal-lost p:first-child {
   color: var(--red);
   font-size: 24px;
+}
+
+/* services + CTAs */
+
+.service-list {
+  list-style: none;
+  margin-top: 8px;
+}
+
+.service-list li {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
+}
+
+.service-name {
+  color: var(--teal);
+  font-size: 21px;
+}
+
+.service-desc {
+  font-size: 16px;
+}
+
+.cta-line {
+  margin-top: 14px;
+  color: var(--amber);
 }
 
 /* lists */
@@ -461,73 +493,92 @@ button {
   }
 }
 
-/* blackjack */
+/* the den — blackjack room overlay */
 
-.bj-smokes {
+.den-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 18px;
+  pointer-events: none;
+}
+
+.den-title {
+  color: var(--orange);
+  letter-spacing: 2px;
+  text-shadow: 0 0 8px rgba(255, 122, 24, 0.5);
+}
+
+.den-top .hud-skip {
+  pointer-events: auto;
+}
+
+.den-scores {
+  position: absolute;
+  top: 50px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 26px;
+  background: rgba(5, 10, 9, 0.7);
+  border: 1px solid var(--border);
+  padding: 4px 18px;
+}
+
+.den-scores b {
   color: var(--amber);
-  margin-bottom: 12px;
+  font-size: 22px;
+}
+
+.den-panel {
+  position: absolute;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  width: min(560px, 92vw);
+  background: rgba(5, 10, 9, 0.85);
+  border: 1px solid var(--border);
+  padding: 12px 18px 14px;
+  text-align: center;
+  pointer-events: auto;
+}
+
+.den-smokes {
+  color: var(--amber);
   letter-spacing: 2px;
 }
 
-.bj-table {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-bottom: 14px;
-}
-
-.bj-table b {
-  color: var(--amber);
-}
-
-.bj-hand {
-  display: flex;
-  gap: 8px;
-  margin-top: 6px;
-  flex-wrap: wrap;
-}
-
-.bj-card {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 44px;
-  height: 60px;
-  border: 1px solid var(--text);
-  background: #101a16;
-  font-size: 24px;
-  padding: 0 6px;
-}
-
-.bj-card.bj-red {
-  color: #ff6b5e;
-}
-
-.bj-card.bj-back {
-  border-style: dashed;
-  color: var(--dim);
-}
-
-.bj-line {
+.den-line {
   min-height: 28px;
+  margin: 8px 0;
 }
 
-.bj-actions {
+.den-actions {
   display: flex;
   gap: 12px;
-  margin-top: 10px;
+  justify-content: center;
+  margin-top: 6px;
 }
 
-.bj-actions button {
+.den-actions button {
   border: 1px solid var(--orange);
   color: var(--orange);
-  padding: 8px 22px;
+  padding: 8px 24px;
   font-size: 22px;
   letter-spacing: 2px;
 }
 
-.bj-actions button:hover {
+.den-actions button:hover {
   background: rgba(255, 122, 24, 0.15);
+}
+
+.den-hint {
+  margin-top: 10px;
+  font-size: 15px;
 }
 
 /* joystick */

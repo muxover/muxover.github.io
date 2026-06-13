@@ -1,6 +1,14 @@
-import { ABOUT_COPY, CONTACT, IDENTITY, STACK, STATIONS } from "../content";
+import {
+  ABOUT_COPY,
+  CLIENTWORK_COPY,
+  CONTACT,
+  IDENTITY,
+  SERVICES,
+  SERVICES_CTA,
+  STACK,
+  STATIONS,
+} from "../content";
 import { useStore } from "../store";
-import { Blackjack } from "./Blackjack";
 import type { Repo } from "../api/github";
 
 export const LANG_COLORS: Record<string, string> = {
@@ -81,7 +89,7 @@ function Body({ id }: { id: string }) {
           ))}
         </div>
       );
-    case "projects":
+    case "opensource":
       if (status === "lost") return <SignalLost />;
       if (repos.length === 0) return <p className="dim">tuning the screens...</p>;
       return (
@@ -90,6 +98,28 @@ function Body({ id }: { id: string }) {
           {repos.map((r) => (
             <RepoRow key={r.name} repo={r} />
           ))}
+        </div>
+      );
+    case "services":
+      return (
+        <div>
+          <p className="dim">what i build for hire:</p>
+          <ul className="service-list">
+            {SERVICES.map((sv) => (
+              <li key={sv.name}>
+                <span className="service-name">{sv.name}</span>
+                <span className="service-desc dim">{sv.desc}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="cta-line">{SERVICES_CTA.street}</p>
+        </div>
+      );
+    case "clientwork":
+      return (
+        <div>
+          <p>{CLIENTWORK_COPY.body}</p>
+          <p className="cta-line">{CLIENTWORK_COPY.street}</p>
         </div>
       );
     case "stack":
@@ -134,8 +164,6 @@ function Body({ id }: { id: string }) {
           </li>
         </ul>
       );
-    case "den":
-      return <Blackjack />;
     default:
       return null;
   }

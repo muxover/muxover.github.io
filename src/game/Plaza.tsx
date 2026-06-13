@@ -119,8 +119,6 @@ export function Plaza() {
 
   return (
     <group>
-      <SharedUniforms />
-
       <mesh rotation-x={-Math.PI / 2} material={mats.ground}>
         <planeGeometry args={[30, 26]} />
       </mesh>

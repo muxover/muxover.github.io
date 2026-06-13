@@ -5,9 +5,10 @@ export const CONFIG = {
   user: "muxover",
 
   look: {
-    // internal render height in pixels; width follows the aspect ratio
-    renderHeight: 240,
-    renderHeightMobile: 200,
+    // internal render height in pixels; width follows the aspect ratio.
+    // higher = sharper / less crunchy while keeping the PS1 vibe
+    renderHeight: 400,
+    renderHeightMobile: 280,
     // vertex grid = drawing buffer resolution / snapDivisor (1 = per-pixel snap)
     snapDivisor: 1,
     // color quantization steps per channel (32 ≈ 5 bits)
@@ -30,8 +31,9 @@ export const CONFIG = {
   },
 
   palette: {
-    cream: "#e8dcc3",
-    beak: "#e8862f",
+    // the logo duck reads as a grubby off-white under warm lamplight
+    cream: "#f3f0e8",
+    beak: "#f0902a",
     ember: "#ff4818",
     neonOrange: "#ff7a18",
     neonRed: "#ff3b30",
@@ -62,15 +64,28 @@ export const CONFIG = {
     lampSpot: [1.3, 0.7] as const, // x, z
     greetRadius: 5.5,
   },
+
+  // the blackjack back-room behind the den door — its own little 3D scene
+  den: {
+    spawn: [0, 1.8] as const, // where the player lands, facing -z toward the table
+    exitPos: [-8.2, 7.6] as const, // back in the plaza, just outside the den door
+    exitYaw: -0.7,
+    door: [0, 3.9] as const, // x, z of the exit door on the back wall
+    doorRadius: 1.7,
+    bounds: { xMin: -3.2, xMax: 3.2, zMin: -1.4, zMax: 3.95 },
+    table: [0, -0.2, 0.95] as const, // collider: x, z, radius
+  },
 } as const;
 
 // solid props the player can't walk through: [x, z, radius]
 export const COLLIDERS: ReadonlyArray<readonly [number, number, number]> = [
   [0, 0, 0.5], // streetlamp
   [-8.6, -5.2, 1.1], // about board
-  [4.2, -8.2, 1.0], // monitors
+  [4.2, -8.2, 1.0], // open-source monitors
   [6.4, -8.2, 1.0],
   [8.6, -8.2, 1.0],
+  [9.9, -4.2, 1.0], // services kiosk
+  [-5.5, -8.5, 1.3], // client-work shutter
   [9.8, 2.6, 1.1], // vending machine
   [-9.4, 4.6, 1.0], // payphone
   [5.4, 6.4, 1.1], // bench

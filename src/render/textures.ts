@@ -147,23 +147,30 @@ export function signTex(lines: string[], o: SignOptions = {}): THREE.CanvasTextu
 }
 
 // CRT monitor face: scanline strips + green-ish phosphor text.
-export function screenTex(lines: string[], accent = "#7dffb0"): THREE.CanvasTexture {
+export function screenTex(lines: string[], accent = "#9dffc4"): THREE.CanvasTexture {
   const w = 256;
   const h = 192;
   const tex = make(w, h, (ctx) => {
-    ctx.fillStyle = "#04110a";
+    // brighter phosphor wash so the screens read clearly through the fog
+    ctx.fillStyle = "#0d2a1c";
     ctx.fillRect(0, 0, w, h);
-    ctx.font = `20px "VT323", monospace`;
+    const glow = ctx.createRadialGradient(w / 2, h / 2, 10, w / 2, h / 2, w * 0.7);
+    glow.addColorStop(0, "rgba(40,120,80,0.35)");
+    glow.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, w, h);
+    ctx.font = `22px "VT323", monospace`;
     ctx.textAlign = "left";
     ctx.textBaseline = "top";
     ctx.shadowColor = accent;
-    ctx.shadowBlur = 6;
+    ctx.shadowBlur = 5;
     lines.forEach((line, i) => {
-      ctx.fillStyle = i === 0 ? accent : "#5fae84";
+      ctx.fillStyle = i === 0 ? accent : "#b6f0cf";
       ctx.fillText(line, 12, 14 + i * 26, w - 24);
     });
     ctx.shadowBlur = 0;
-    ctx.fillStyle = "rgba(0,0,0,0.28)";
+    // lighter scanlines — texture, not a blackout
+    ctx.fillStyle = "rgba(0,0,0,0.12)";
     for (let y = 0; y < h; y += 4) ctx.fillRect(0, y, w, 2);
   });
   tex.wrapS = THREE.ClampToEdgeWrapping;

@@ -8,6 +8,7 @@ import { duckState, playerState } from "./input";
 import { useStore } from "../store";
 
 const TRASH_POS = [-4.6, 7.2] as const;
+const BENCH_POS = [5.4, 6.4] as const;
 
 // Proximity watcher: sets the HUD prompt and fires the duck's line the
 // first time the player wanders into a station. The duck itself and the
@@ -38,6 +39,8 @@ function Proximity() {
       s.setPrompt("duck");
     } else if (Math.hypot(TRASH_POS[0] - playerState.x, TRASH_POS[1] - playerState.z) < 1.5) {
       s.setPrompt("trash");
+    } else if (Math.hypot(BENCH_POS[0] - playerState.x, BENCH_POS[1] - playerState.z) < 2.0) {
+      s.setPrompt("bench");
     } else {
       s.setPrompt(null);
     }
@@ -63,7 +66,7 @@ function Monitors() {
     () => ({
       shell: psxMaterial({ color: "#2e3331" }),
       crate: psxMaterial({ map: woodTex(), color: "#b8a78d" }),
-      sign: psxMaterial({ map: signTex(["PROJECTS"], { fg: "#ff7a18" }), unlit: true, flicker: true }),
+      sign: psxMaterial({ map: signTex(["OPEN SOURCE"], { fg: "#ff7a18", fontPx: 40 }), unlit: true, flicker: true }),
       screens: MONITOR_SLOTS.map(() => psxMaterial({ map: screenTex(["NO SIGNAL"], "#557766"), unlit: true })),
     }),
     [],
@@ -169,6 +172,19 @@ export function Stations() {
       phone: psxMaterial({ color: "#1f4540" }),
       phoneSign: psxMaterial({ map: signTex(["TEL"], { fg: "#ff3b30" }), unlit: true, flicker: true }),
       dark: psxMaterial({ color: "#23282b" }),
+      kiosk: psxMaterial({ color: "#2a3a3f" }),
+      kioskFace: psxMaterial({
+        map: signTex(["SERVICES", "for hire"], { fg: "#ff7a18", glow: "#ff7a18", h: 200, fontPx: 38 }),
+        unlit: true,
+        flicker: true,
+      }),
+      counter: psxMaterial({ map: concreteTex(), color: "#8a948f" }),
+      shutter: psxMaterial({ map: concreteTex(), color: "#5b5550" }),
+      shutterSign: psxMaterial({
+        map: signTex(["CLIENT WORK", "by request"], { fg: "#ff3b30", glow: "#ff3b30", h: 160, fontPx: 30 }),
+        unlit: true,
+        flicker: true,
+      }),
       door: psxMaterial({ map: woodTex(), color: "#5a5248" }),
       doorSign: psxMaterial({ map: signTex(["♠"], { fg: "#ff3b30", w: 64, h: 64, fontPx: 40 }), unlit: true, flicker: true }),
       doorGlow: psxMaterial({ color: "#1a0c08", emissive: "#ff4818", emissiveIntensity: 0.35, flicker: true }),
@@ -191,6 +207,36 @@ export function Stations() {
         ))}
         <mesh position={[0, 1.55, 0]} material={mats.boardSign}>
           <boxGeometry args={[2.4, 1.5, 0.08]} />
+        </mesh>
+      </group>
+
+      {/* services — a roadside kiosk / counter, facing into the plaza */}
+      <group position={[9.9, 0, -4.2]} rotation-y={-Math.PI / 2}>
+        <mesh position={[0, 1.1, 0]} material={mats.kiosk}>
+          <boxGeometry args={[1.7, 2.2, 1.0]} />
+        </mesh>
+        {/* serving counter ledge */}
+        <mesh position={[0, 0.95, 0.62]} material={mats.counter}>
+          <boxGeometry args={[1.7, 0.12, 0.4]} />
+        </mesh>
+        <mesh position={[0, 1.55, 0.51]} material={mats.kioskFace}>
+          <planeGeometry args={[1.4, 0.9]} />
+        </mesh>
+      </group>
+
+      {/* client work — a closed roller shutter, kept private */}
+      <group position={[-5.5, 0, -8.4]}>
+        <mesh position={[0, 1.3, 0]} material={mats.shutter}>
+          <boxGeometry args={[2.4, 2.6, 0.2]} />
+        </mesh>
+        {/* shutter slats */}
+        {[0.4, 0.9, 1.4, 1.9].map((y) => (
+          <mesh key={y} position={[0, y, 0.11]} material={mats.dark}>
+            <boxGeometry args={[2.3, 0.04, 0.02]} />
+          </mesh>
+        ))}
+        <mesh position={[0, 2.55, 0.12]} material={mats.shutterSign}>
+          <planeGeometry args={[2.0, 0.7]} />
         </mesh>
       </group>
 

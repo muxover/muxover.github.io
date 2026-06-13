@@ -26,10 +26,19 @@ export function Player() {
         let nx = playerState.x + fx * f * p.speed * dt;
         let nz = playerState.z + fz * f * p.speed * dt;
 
-        nx = Math.max(-p.bounds.x, Math.min(p.bounds.x, nx));
-        nz = Math.max(-p.bounds.z, Math.min(p.bounds.z, nz));
+        const inDen = s.scene === "den";
+        const colliders = inDen ? [CONFIG.den.table] : COLLIDERS;
 
-        for (const [cx, cz, cr] of COLLIDERS) {
+        if (inDen) {
+          const b = CONFIG.den.bounds;
+          nx = Math.max(b.xMin, Math.min(b.xMax, nx));
+          nz = Math.max(b.zMin, Math.min(b.zMax, nz));
+        } else {
+          nx = Math.max(-p.bounds.x, Math.min(p.bounds.x, nx));
+          nz = Math.max(-p.bounds.z, Math.min(p.bounds.z, nz));
+        }
+
+        for (const [cx, cz, cr] of colliders) {
           const dx = nx - cx;
           const dz = nz - cz;
           const min = cr + p.radius;

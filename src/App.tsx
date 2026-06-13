@@ -4,12 +4,14 @@ import { CONFIG } from "./config";
 import { AWAY_TITLES } from "./content";
 import { loadGitHub } from "./api/github";
 import { bindKeyboard, input } from "./game/input";
-import { Plaza } from "./game/Plaza";
+import { Plaza, SharedUniforms } from "./game/Plaza";
 import { Stations } from "./game/Stations";
 import { Duck } from "./game/Duck";
+import { DenRoom } from "./game/DenRoom";
 import { Player } from "./game/Player";
 import { PostFX } from "./render/PostFX";
 import { Hud } from "./ui/Hud";
+import { DenHud } from "./ui/DenHud";
 import { Panel } from "./ui/Panel";
 import { LoadingScreen } from "./ui/LoadingScreen";
 import { TextFallback } from "./ui/TextFallback";
@@ -23,6 +25,7 @@ function calcDpr(touch: boolean): number {
 
 export default function App() {
   const phase = useStore((s) => s.phase);
+  const scene = useStore((s) => s.scene);
   const textMode = useStore((s) => s.textMode);
   const touch = useStore((s) => s.touch);
   const [dpr, setDpr] = useState(() => calcDpr(useStore.getState().touch));
@@ -98,13 +101,20 @@ export default function App() {
         camera={{ fov: 68, near: 0.1, far: 55 }}
       >
         <color attach="background" args={[CONFIG.look.fogColor]} />
-        <Plaza />
-        <Stations />
-        <Duck />
+        <SharedUniforms />
+        {scene === "street" ? (
+          <>
+            <Plaza />
+            <Stations />
+            <Duck />
+          </>
+        ) : (
+          <DenRoom />
+        )}
         <Player />
         <PostFX />
       </Canvas>
-      <Hud />
+      {scene === "street" ? <Hud /> : <DenHud />}
       <Panel />
       {touch && phase === "play" && <Joystick />}
       {phase === "loading" && <LoadingScreen />}

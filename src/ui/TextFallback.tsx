@@ -1,4 +1,12 @@
-import { ABOUT_COPY, CONTACT, IDENTITY, STACK } from "../content";
+import {
+  ABOUT_COPY,
+  CLIENTWORK_COPY,
+  CONTACT,
+  IDENTITY,
+  SERVICES,
+  SERVICES_CTA,
+  STACK,
+} from "../content";
 import { useStore } from "../store";
 import { RepoRow } from "./Panel";
 
@@ -6,6 +14,7 @@ export function TextFallback() {
   const repos = useStore((s) => s.repos);
   const profile = useStore((s) => s.profile);
   const status = useStore((s) => s.dataStatus);
+  const touch = useStore((s) => s.touch);
   const setTextMode = useStore((s) => s.setTextMode);
 
   return (
@@ -16,9 +25,12 @@ export function TextFallback() {
             {IDENTITY.name} <span className="dim">// {IDENTITY.handle}</span>
           </h1>
           <p className="dim">{IDENTITY.vibe}</p>
-          <button className="hud-skip" onClick={() => setTextMode(false)}>
-            back to the street
-          </button>
+          {/* the 3D street is desktop-only; no point sending phones into it */}
+          {!touch && (
+            <button className="hud-skip" onClick={() => setTextMode(false)}>
+              enter the street
+            </button>
+          )}
         </header>
 
         <section>
@@ -29,7 +41,7 @@ export function TextFallback() {
         </section>
 
         <section>
-          <h2>:: PROJECTS</h2>
+          <h2>:: OPEN SOURCE</h2>
           {status === "lost" ? (
             <p>
               signal lost — see{" "}
@@ -48,15 +60,6 @@ export function TextFallback() {
           )}
         </section>
 
-        <section>
-          <h2>:: STACK</h2>
-          <ul className="stack-list">
-            {STACK.map((s) => (
-              <li key={s}>{s}</li>
-            ))}
-          </ul>
-        </section>
-
         {profile && (
           <section>
             <h2>:: SIGNAL</h2>
@@ -66,6 +69,34 @@ export function TextFallback() {
             </p>
           </section>
         )}
+
+        <section>
+          <h2>:: STACK</h2>
+          <ul className="stack-list">
+            {STACK.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
+        </section>
+
+        <section>
+          <h2>:: SERVICES</h2>
+          <ul className="service-list">
+            {SERVICES.map((sv) => (
+              <li key={sv.name}>
+                <span className="service-name">{sv.name}</span>
+                <span className="service-desc dim">{sv.desc}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="cta-line">{SERVICES_CTA.page}</p>
+        </section>
+
+        <section>
+          <h2>:: CLIENT WORK</h2>
+          <p>{CLIENTWORK_COPY.body}</p>
+          <p className="cta-line">{CLIENTWORK_COPY.page}</p>
+        </section>
 
         <section>
           <h2>:: CONTACT</h2>
